@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useSelector } from "react-redux";
 import API from "../api/axios.js";
 
@@ -7,10 +7,13 @@ function Dashboard() {
   const [stats, setStats] = useState(null);
   const [workouts, setWorkouts] = useState([]);
   const [form, setForm] = useState({
-    title: "", category: "Cardio", duration: "", calories: "", sets: "", reps: "", notes: ""
+    title: "", category: "Strength", duration: "",
+    calories: "", sets: "", reps: "", notes: ""
   });
   const [loading, setLoading] = useState(false);
   const [mobile, setMobile] = useState(window.innerWidth < 768);
+  const [focused, setFocused] = useState(null);
+  const [hovDel, setHovDel] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -33,10 +36,11 @@ function Dashboard() {
   };
 
   const addWorkout = async () => {
+    if (!form.title) return;
     setLoading(true);
     try {
       await API.post("/workout/add", form);
-      setForm({ title: "", category: "Cardio", duration: "", calories: "", sets: "", reps: "", notes: "" });
+      setForm({ title: "", category: "Strength", duration: "", calories: "", sets: "", reps: "", notes: "" });
       fetchData();
     } catch (err) {
       console.error(err);
@@ -51,29 +55,61 @@ function Dashboard() {
   };
 
   const statCards = stats ? [
-    { label: "Total Workouts", value: stats.totalWorkouts, icon: "⚡" },
-    { label: "Total Calories", value: stats.totalCalories + " kcal", icon: "🔥" },
-    { label: "Total Duration", value: stats.totalDuration + " min", icon: "⏱" },
-    { label: "Total Sets", value: stats.totalSets || 0, icon: "💪" },
-    { label: "Total Reps", value: stats.totalReps || 0, icon: "🎯" },
+    { label: "Workouts", value: stats.totalWorkouts, num: "01" },
+    { label: "Calories", value: stats.totalCalories + " kcal", num: "02" },
+    { label: "Duration", value: stats.totalDuration + " min", num: "03" },
+    { label: "Sets", value: stats.totalSets || 0, num: "04" },
+    { label: "Reps", value: stats.totalReps || 0, num: "05" },
   ] : [];
 
+  const categories = ["Cardio", "Strength", "Flexibility", "Balance"];
+
   return React.createElement("div", {
-    style: { padding: mobile ? "100px 16px 60px" : "100px 24px 60px", maxWidth: "1100px", margin: "0 auto" }
+    style: {
+      minHeight: "100vh", background: "#fafafa",
+      fontFamily: "'Helvetica Neue', Arial, sans-serif",
+      paddingTop: "80px",
+    },
   },
 
-    // ── HEADER ──
-    React.createElement("div", { style: { marginBottom: "40px" } },
-      React.createElement("div", {
-        style: { display: "flex", alignItems: "center", gap: "12px", marginBottom: "6px" }
+    // ── PAGE HEADER ──
+    React.createElement("div", {
+      style: {
+        borderBottom: "1px solid #f0f0f0",
+        padding: mobile ? "40px 24px 32px" : "56px 80px 40px",
+        display: "flex", alignItems: "flex-end",
+        justifyContent: "space-between",
+        flexWrap: "wrap", gap: "16px",
+        position: "relative", overflow: "hidden",
       },
-        React.createElement("div", { style: { width: "3px", height: "32px", background: "#C0392B", flexShrink: 0 } }),
-        React.createElement("div", {
-          style: { fontSize: mobile ? "28px" : "36px", fontFamily: "'Bebas Neue', Impact", letterSpacing: "0.1em", color: "#fff", lineHeight: 1 }
-        }, `WELCOME, ${user?.name?.toUpperCase() || "USER"}`)
-      ),
+    },
       React.createElement("div", {
-        style: { fontSize: "9px", letterSpacing: "0.4em", color: "#C0392B", textTransform: "uppercase", paddingLeft: "15px" }
+        style: {
+          position: "absolute", right: "-10px", bottom: "-20px",
+          fontSize: mobile ? "30vw" : "18vw",
+          fontFamily: "'Bebas Neue', Impact",
+          color: "transparent", WebkitTextStroke: "1px #f0f0f0",
+          userSelect: "none", pointerEvents: "none", lineHeight: 1,
+        },
+      }, "HQ"),
+
+      React.createElement("div", { style: { position: "relative", zIndex: 2 } },
+        React.createElement("div", {
+          style: { fontSize: "7px", letterSpacing: "0.6em", color: "#888", textTransform: "uppercase", marginBottom: "12px", display: "flex", alignItems: "center", gap: "12px" },
+        },
+          React.createElement("span", { style: { display: "inline-block", width: "20px", height: "1px", background: "#ccc" } }),
+          "Mission Control"
+        ),
+        React.createElement("h1", {
+          style: { fontSize: mobile ? "10vw" : "clamp(40px,6vw,72px)", fontFamily: "'Bebas Neue', Impact", color: "#000", lineHeight: 0.88, margin: "0 0 6px", letterSpacing: "0.01em" },
+        }, "WELCOME,"),
+        React.createElement("h1", {
+          style: { fontSize: mobile ? "10vw" : "clamp(40px,6vw,72px)", fontFamily: "'Bebas Neue', Impact", color: "transparent", WebkitTextStroke: "2px #ccc", lineHeight: 0.88, margin: 0, letterSpacing: "0.01em" },
+        }, `${user?.name?.toUpperCase() || "OPERATOR"}.`)
+      ),
+
+      React.createElement("div", {
+        style: { fontSize: "7px", letterSpacing: "0.5em", color: "#888", textTransform: "uppercase", position: "relative", zIndex: 2 },
       }, "Your fitness dashboard")
     ),
 
@@ -82,283 +118,302 @@ function Dashboard() {
       style: {
         display: "grid",
         gridTemplateColumns: mobile ? "1fr 1fr" : "repeat(5, 1fr)",
-        gap: "12px", marginBottom: "32px"
-      }
+        borderBottom: "1px solid #f0f0f0",
+      },
     },
       ...statCards.map((card, i) =>
         React.createElement("div", {
           key: card.label,
           style: {
-            position: "relative",
-            background: "rgba(10,10,10,0.98)",
-            border: "1px solid #1a1a1a",
-            borderRadius: "20px",
-            padding: "24px 20px",
-            overflow: "hidden",
+            padding: mobile ? "28px 16px" : "36px 32px",
+            borderRight: i < statCards.length - 1 ? "1px solid #f0f0f0" : "none",
+            borderBottom: mobile && i < 3 ? "1px solid #f0f0f0" : "none",
+            position: "relative", overflow: "hidden",
             gridColumn: mobile && i === 4 ? "span 2" : "span 1",
-          }
+          },
         },
-          React.createElement("div", { style: { position: "absolute", top: 0, left: 0, width: "30px", height: "1px", background: "#C0392B" } }),
-          React.createElement("div", { style: { position: "absolute", top: 0, left: 0, width: "1px", height: "30px", background: "#C0392B" } }),
           React.createElement("div", {
-            style: { position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", fontSize: "44px", opacity: 0.04, userSelect: "none", pointerEvents: "none" }
-          }, card.icon),
-          React.createElement("div", {
-            style: { fontSize: "7px", letterSpacing: "0.4em", color: "#C0392B", textTransform: "uppercase", marginBottom: "8px" }
+            style: { fontSize: "7px", letterSpacing: "0.5em", color: "#888", textTransform: "uppercase", marginBottom: "10px" },
           }, card.label),
           React.createElement("div", {
-            style: { fontSize: mobile ? "24px" : "28px", fontFamily: "'Bebas Neue', Impact", letterSpacing: "0.05em", color: "#fff", lineHeight: 1 }
-          }, card.value)
+            style: { fontSize: mobile ? "28px" : "clamp(28px,3.5vw,44px)", fontFamily: "'Bebas Neue', Impact", color: "#000", lineHeight: 1, letterSpacing: "0.02em" },
+          }, card.value),
+          React.createElement("div", {
+            style: { position: "absolute", bottom: "8px", right: "12px", fontSize: "9px", letterSpacing: "0.3em", color: "#eee", fontFamily: "'Bebas Neue', Impact" },
+          }, card.num)
         )
       )
     ),
 
-    // ── ADD WORKOUT FORM ──
+    // ── MAIN GRID ──
     React.createElement("div", {
       style: {
-        position: "relative",
-        background: "rgba(10,10,10,0.98)",
-        border: "1px solid #1a1a1a",
-        borderRadius: "24px",
-        padding: mobile ? "24px 20px" : "36px 32px",
-        marginBottom: "32px"
-      }
+        display: "grid",
+        gridTemplateColumns: mobile ? "1fr" : "1fr 1fr",
+        minHeight: "60vh",
+      },
     },
-      React.createElement("div", { style: { position: "absolute", top: 0, left: 0, width: "60px", height: "1px", background: "#C0392B" } }),
-      React.createElement("div", { style: { position: "absolute", top: 0, left: 0, width: "1px", height: "60px", background: "#C0392B" } }),
 
-      React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "10px", marginBottom: "24px" } },
-        React.createElement("div", { style: { width: "3px", height: "20px", background: "#C0392B" } }),
-        React.createElement("div", {
-          style: { fontSize: "16px", fontFamily: "'Bebas Neue', Impact", letterSpacing: "0.15em", color: "#fff" }
-        }, "LOG WORKOUT")
-      ),
-
-      // Row 1 — Title + Category
+      // ── LEFT — LOG WORKOUT ──
       React.createElement("div", {
-        style: { display: "grid", gridTemplateColumns: mobile ? "1fr" : "1fr 1fr", gap: "10px", marginBottom: "10px" }
-      },
-        React.createElement("input", {
-          placeholder: "Workout Title", value: form.title,
-          onChange: (e) => setForm({ ...form, title: e.target.value }),
-          style: inputStyle,
-          onFocus: (e) => e.target.style.borderColor = "#C0392B",
-          onBlur: (e) => e.target.style.borderColor = "#1a1a1a",
-        }),
-        React.createElement("select", {
-          value: form.category,
-          onChange: (e) => setForm({ ...form, category: e.target.value }),
-          style: selectStyle,
-        },
-          ["Cardio", "Strength", "Flexibility", "Balance"].map(c =>
-            React.createElement("option", { key: c, value: c }, c)
-          )
-        )
-      ),
-
-      // Row 2 — Duration + Calories
-      React.createElement("div", {
-        style: { display: "grid", gridTemplateColumns: mobile ? "1fr" : "1fr 1fr", gap: "10px", marginBottom: "10px" }
-      },
-        React.createElement("input", {
-          placeholder: "Duration (min)", type: "number", value: form.duration,
-          onChange: (e) => setForm({ ...form, duration: e.target.value }),
-          style: inputStyle,
-          onFocus: (e) => e.target.style.borderColor = "#C0392B",
-          onBlur: (e) => e.target.style.borderColor = "#1a1a1a",
-        }),
-        React.createElement("input", {
-          placeholder: "Calories Burned (kcal)", type: "number", value: form.calories,
-          onChange: (e) => setForm({ ...form, calories: e.target.value }),
-          style: inputStyle,
-          onFocus: (e) => e.target.style.borderColor = "#C0392B",
-          onBlur: (e) => e.target.style.borderColor = "#1a1a1a",
-        })
-      ),
-
-      // Row 3 — Sets + Reps
-      React.createElement("div", {
-        style: { display: "grid", gridTemplateColumns: mobile ? "1fr" : "1fr 1fr", gap: "10px", marginBottom: "10px" }
-      },
-        React.createElement("div", { style: { position: "relative" } },
-          React.createElement("input", {
-            placeholder: "Sets", type: "number", value: form.sets,
-            onChange: (e) => setForm({ ...form, sets: e.target.value }),
-            style: inputStyle,
-            onFocus: (e) => e.target.style.borderColor = "#C0392B",
-            onBlur: (e) => e.target.style.borderColor = "#1a1a1a",
-          }),
-          React.createElement("span", {
-            style: { position: "absolute", right: "14px", top: "50%", transform: "translateY(-50%)", fontSize: "8px", letterSpacing: "0.3em", color: "#fff", textTransform: "uppercase", pointerEvents: "none" }
-          }, "Sets")
-        ),
-        React.createElement("div", { style: { position: "relative" } },
-          React.createElement("input", {
-            placeholder: "Reps per Set", type: "number", value: form.reps,
-            onChange: (e) => setForm({ ...form, reps: e.target.value }),
-            style: inputStyle,
-            onFocus: (e) => e.target.style.borderColor = "#C0392B",
-            onBlur: (e) => e.target.style.borderColor = "#1a1a1a",
-          }),
-          React.createElement("span", {
-            style: { position: "absolute", right: "14px", top: "50%", transform: "translateY(-50%)", fontSize: "8px", letterSpacing: "0.3em", color: "#fff", textTransform: "uppercase", pointerEvents: "none" }
-          }, "Reps")
-        )
-      ),
-
-      // Notes
-      React.createElement("input", {
-        placeholder: "Notes (optional)", value: form.notes,
-        onChange: (e) => setForm({ ...form, notes: e.target.value }),
-        style: { ...inputStyle, width: "100%", marginBottom: "20px" },
-        onFocus: (e) => e.target.style.borderColor = "#C0392B",
-        onBlur: (e) => e.target.style.borderColor = "#1a1a1a",
-      }),
-
-      // Submit button
-      React.createElement("button", {
-        onClick: addWorkout, disabled: loading,
         style: {
-          padding: "13px 36px",
-          background: loading ? "#333" : "#C0392B",
-          border: "none", borderRadius: "100px",
-          color: "#fff", fontSize: "11px",
-          letterSpacing: "0.25em", textTransform: "uppercase",
-          cursor: loading ? "not-allowed" : "pointer",
-          fontFamily: "'Helvetica Neue', Arial, sans-serif",
-          fontWeight: "500",
-          transition: "all 0.3s ease",
-          opacity: loading ? 0.7 : 1,
-          boxShadow: "0 0 20px rgba(192,57,43,0.2)",
+          padding: mobile ? "40px 24px" : "56px 80px",
+          borderRight: mobile ? "none" : "1px solid #f0f0f0",
+          borderBottom: mobile ? "1px solid #f0f0f0" : "none",
         },
-        onMouseEnter: (e) => {
-          if (!loading) {
-            e.currentTarget.style.background = "#a93226";
-            e.currentTarget.style.boxShadow = "0 0 32px rgba(192,57,43,0.4)";
-          }
-        },
-        onMouseLeave: (e) => {
-          if (!loading) {
-            e.currentTarget.style.background = "#C0392B";
-            e.currentTarget.style.boxShadow = "0 0 20px rgba(192,57,43,0.2)";
-          }
-        },
-      }, loading ? "Logging..." : "Log Workout")
-    ),
-
-    // ── RECENT WORKOUTS ──
-    React.createElement("div", null,
-      React.createElement("div", {
-        style: { display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px" }
       },
-        React.createElement("div", { style: { width: "3px", height: "20px", background: "#C0392B" } }),
         React.createElement("div", {
-          style: { fontSize: "16px", fontFamily: "'Bebas Neue', Impact", letterSpacing: "0.15em", color: "#fff" }
-        }, "RECENT WORKOUTS"),
-        React.createElement("span", {
-          style: { fontSize: "8px", letterSpacing: "0.3em", color: "#fff", textTransform: "uppercase", marginLeft: "auto" }
-        }, `${workouts.length} logged`)
+          style: { fontSize: "7px", letterSpacing: "0.6em", color: "#888", textTransform: "uppercase", marginBottom: "36px" },
+        }, "01 — Log Workout"),
+
+        React.createElement(DashInputField, {
+          label: "Workout Title", type: "text", value: form.title,
+          onChange: (v) => setForm({ ...form, title: v }),
+          focused: focused === "title",
+          onFocus: () => setFocused("title"),
+          onBlur: () => setFocused(null),
+        }),
+
+        // Category
+        React.createElement("div", { style: { marginBottom: "28px" } },
+          React.createElement("div", {
+            style: { fontSize: "7px", letterSpacing: "0.5em", color: "#888", textTransform: "uppercase", marginBottom: "16px" },
+          }, "Category"),
+          React.createElement("div", { style: { display: "flex", gap: "0", flexWrap: "wrap" } },
+            categories.map(c =>
+              React.createElement("button", {
+                key: c,
+                onClick: () => setForm({ ...form, category: c }),
+                style: {
+                  padding: "10px 16px",
+                  background: form.category === c ? "#000" : "#fff",
+                  border: "1px solid #f0f0f0",
+                  color: form.category === c ? "#fff" : "#888",
+                  fontSize: "8px", letterSpacing: "0.3em",
+                  textTransform: "uppercase", cursor: "pointer",
+                  fontFamily: "'Helvetica Neue', Arial, sans-serif",
+                  transition: "all 0.3s ease",
+                },
+              }, c)
+            )
+          )
+        ),
+
+        // Duration + Calories
+        React.createElement("div", {
+          style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px", marginBottom: "8px" },
+        },
+          React.createElement(DashNumberField, {
+            label: "Duration", unit: "min", value: form.duration,
+            onChange: (v) => setForm({ ...form, duration: v }),
+            focused: focused === "duration",
+            onFocus: () => setFocused("duration"),
+            onBlur: () => setFocused(null),
+          }),
+          React.createElement(DashNumberField, {
+            label: "Calories", unit: "kcal", value: form.calories,
+            onChange: (v) => setForm({ ...form, calories: v }),
+            focused: focused === "calories",
+            onFocus: () => setFocused("calories"),
+            onBlur: () => setFocused(null),
+          }),
+        ),
+
+        // Sets + Reps
+        React.createElement("div", {
+          style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px", marginBottom: "8px" },
+        },
+          React.createElement(DashNumberField, {
+            label: "Sets", unit: "sets", value: form.sets,
+            onChange: (v) => setForm({ ...form, sets: v }),
+            focused: focused === "sets",
+            onFocus: () => setFocused("sets"),
+            onBlur: () => setFocused(null),
+          }),
+          React.createElement(DashNumberField, {
+            label: "Reps", unit: "reps", value: form.reps,
+            onChange: (v) => setForm({ ...form, reps: v }),
+            focused: focused === "reps",
+            onFocus: () => setFocused("reps"),
+            onBlur: () => setFocused(null),
+          }),
+        ),
+
+        React.createElement(DashInputField, {
+          label: "Notes (optional)", type: "text", value: form.notes,
+          onChange: (v) => setForm({ ...form, notes: v }),
+          focused: focused === "notes",
+          onFocus: () => setFocused("notes"),
+          onBlur: () => setFocused(null),
+        }),
+
+        React.createElement("button", {
+          onClick: addWorkout, disabled: loading,
+          style: {
+            width: "100%", padding: "18px",
+            background: loading ? "#f0f0f0" : "#000",
+            border: "none", color: loading ? "#888" : "#fff",
+            fontSize: "9px", letterSpacing: "0.5em",
+            textTransform: "uppercase",
+            cursor: loading ? "not-allowed" : "pointer",
+            fontFamily: "'Helvetica Neue', Arial, sans-serif",
+            transition: "all 0.3s ease",
+            display: "flex", alignItems: "center",
+            justifyContent: "center", gap: "12px",
+          },
+          onMouseEnter: (e) => { if (!loading) e.currentTarget.style.background = "#222"; },
+          onMouseLeave: (e) => { if (!loading) e.currentTarget.style.background = "#000"; },
+        },
+          loading ? "Logging..." : "Log Workout",
+          !loading && React.createElement("span", { style: { fontSize: "14px" } }, "→")
+        )
       ),
 
-      workouts.length === 0
-        ? React.createElement("div", {
-            style: {
-              background: "rgba(10,10,10,0.98)", border: "1px solid #1a1a1a",
-              borderRadius: "16px", padding: "60px 24px", textAlign: "center",
-              color: "#fff", fontSize: "11px", letterSpacing: "0.3em", textTransform: "uppercase",
-            }
-          }, "No workouts yet — log your first mission")
-
-        : workouts.map((w) =>
+      // ── RIGHT — WORKOUTS LIST ──
+      React.createElement("div", {
+        style: { padding: mobile ? "40px 24px" : "56px 80px" },
+      },
+        React.createElement("div", {
+          style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "36px" },
+        },
           React.createElement("div", {
-            key: w._id,
-            style: {
-              position: "relative", background: "rgba(10,10,10,0.98)",
-              border: "1px solid #1a1a1a", borderRadius: "16px",
-              padding: "20px 24px", marginBottom: "10px",
-              display: "flex", justifyContent: "space-between", alignItems: "center",
-              flexWrap: "wrap", gap: "12px", transition: "border-color 0.3s ease",
-            },
-            onMouseEnter: (e) => e.currentTarget.style.borderColor = "#C0392B",
-            onMouseLeave: (e) => e.currentTarget.style.borderColor = "#1a1a1a",
-          },
-            React.createElement("div", null,
-              React.createElement("div", {
-                style: { color: "#fff", fontSize: "14px", letterSpacing: "0.05em", marginBottom: "8px", fontWeight: "500" }
-              }, w.title),
-              React.createElement("div", {
-                style: { display: "flex", gap: "12px", flexWrap: "wrap", alignItems: "center" }
-              },
-                React.createElement("span", {
-                  style: { fontSize: "9px", letterSpacing: "0.25em", color: "#C0392B", textTransform: "uppercase" }
-                }, w.category),
-                w.duration && React.createElement("span", { style: tagStyle }, `⏱ ${w.duration} min`),
-                w.calories && React.createElement("span", { style: tagStyle }, `🔥 ${w.calories} kcal`),
-                w.sets > 0 && React.createElement("span", { style: tagStyle }, `💪 ${w.sets} sets`),
-                w.reps > 0 && React.createElement("span", { style: tagStyle }, `🎯 ${w.reps} reps`),
-                w.notes && React.createElement("span", { style: { ...tagStyle } }, `📝 ${w.notes}`)
-              )
-            ),
+            style: { fontSize: "7px", letterSpacing: "0.6em", color: "#888", textTransform: "uppercase" },
+          }, "02 — Recent Workouts"),
+          React.createElement("span", {
+            style: { fontSize: "16px", letterSpacing: "0.3em", color: "#000", textTransform: "uppercase", fontFamily: "'Bebas Neue', Impact" },
+          }, workouts.length)
+        ),
 
-            // Delete button
-            React.createElement("button", {
-              onClick: () => deleteWorkout(w._id),
-              style: {
-                background: "transparent",
-                border: "1px solid #333",
-                borderRadius: "100px",
-                color: "#fff",
-                fontSize: "10px",
-                letterSpacing: "0.15em",
-                padding: "7px 18px",
-                cursor: "pointer",
-                transition: "all 0.3s ease",
-                fontFamily: "'Helvetica Neue', Arial, sans-serif",
-                textTransform: "uppercase",
-              },
-              onMouseEnter: (e) => {
-                e.currentTarget.style.borderColor = "#C0392B";
-                e.currentTarget.style.color = "#C0392B";
-                e.currentTarget.style.background = "rgba(192,57,43,0.08)";
-              },
-              onMouseLeave: (e) => {
-                e.currentTarget.style.borderColor = "#333";
-                e.currentTarget.style.color = "#fff";
-                e.currentTarget.style.background = "transparent";
-              },
-            }, "Delete")
-          )
-        )
+        workouts.length === 0
+          ? React.createElement("div", {
+              style: { padding: "80px 0", textAlign: "center" },
+            },
+              React.createElement("div", {
+                style: { fontSize: mobile ? "20vw" : "clamp(60px,10vw,120px)", fontFamily: "'Bebas Neue', Impact", color: "transparent", WebkitTextStroke: "1px #eee", lineHeight: 1, marginBottom: "16px" },
+              }, "0"),
+              React.createElement("p", {
+                style: { fontSize: "8px", letterSpacing: "0.5em", color: "#999", textTransform: "uppercase" },
+              }, "No workouts yet — log your first")
+            )
+
+          : React.createElement("div", null,
+              ...workouts.map((w, i) =>
+                React.createElement("div", {
+                  key: w._id,
+                  onMouseEnter: () => setHovDel(w._id),
+                  onMouseLeave: () => setHovDel(null),
+                  style: {
+                    padding: "20px 0",
+                    borderBottom: "1px solid #f5f5f5",
+                    display: "flex", justifyContent: "space-between",
+                    alignItems: "center", gap: "16px",
+                  },
+                },
+                  React.createElement("div", { style: { flex: 1 } },
+                    React.createElement("div", {
+                      style: { display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" },
+                    },
+                      React.createElement("span", {
+                        style: { fontSize: "8px", letterSpacing: "0.3em", color: "#aaa", fontFamily: "'Bebas Neue', Impact", minWidth: "20px" },
+                      }, `0${i + 1}`),
+                      React.createElement("span", {
+                        style: { fontSize: "14px", fontFamily: "'Bebas Neue', Impact", color: "#000", letterSpacing: "0.06em" },
+                      }, w.title.toUpperCase())
+                    ),
+                    React.createElement("div", {
+                      style: { display: "flex", gap: "8px", flexWrap: "wrap", paddingLeft: "32px" },
+                    },
+                      React.createElement("span", {
+                        style: { fontSize: "7px", letterSpacing: "0.4em", color: "#555", textTransform: "uppercase", background: "#f5f5f5", padding: "3px 10px" },
+                      }, w.category),
+                      w.duration && React.createElement("span", { style: statTagStyle }, `${w.duration} min`),
+                      w.calories && React.createElement("span", { style: statTagStyle }, `${w.calories} kcal`),
+                      w.sets > 0 && React.createElement("span", { style: statTagStyle }, `${w.sets} sets`),
+                      w.reps > 0 && React.createElement("span", { style: statTagStyle }, `${w.reps} reps`),
+                      w.notes && React.createElement("span", { style: { ...statTagStyle, fontStyle: "italic" } }, w.notes)
+                    )
+                  ),
+
+                  React.createElement("button", {
+                    onClick: () => deleteWorkout(w._id),
+                    style: {
+                      background: "transparent",
+                      border: `1px solid ${hovDel === w._id ? "#000" : "#eee"}`,
+                      color: hovDel === w._id ? "#000" : "#bbb",
+                      fontSize: "8px", letterSpacing: "0.3em",
+                      padding: "8px 16px", cursor: "pointer",
+                      textTransform: "uppercase",
+                      fontFamily: "'Helvetica Neue', Arial, sans-serif",
+                      transition: "all 0.3s ease", flexShrink: 0,
+                    },
+                  }, "✕")
+                )
+              )
+            )
+      )
     ),
 
     React.createElement("style", null, `
       @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap');
-      select option { background: #0d0d0d !important; color: #fff !important; }
-      input::placeholder { color: #444 !important; }
+      input::placeholder { color: #bbb; }
+      input[type=number]::-webkit-outer-spin-button,
+      input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+      input[type=number] { -moz-appearance: textfield; }
     `)
   );
 }
 
-const inputStyle = {
-  width: "100%", padding: "12px 16px",
-  background: "rgba(255,255,255,0.03)",
-  border: "1px solid #1a1a1a", borderRadius: "12px",
-  color: "#fff", fontSize: "13px",
-  fontFamily: "'Helvetica Neue', Arial, sans-serif",
-  outline: "none", transition: "border-color 0.3s ease", display: "block",
-};
+function DashInputField({ label, type, value, onChange, focused, onFocus, onBlur }) {
+  return React.createElement("div", { style: { marginBottom: "28px" } },
+    React.createElement("div", {
+      style: { fontSize: "7px", letterSpacing: "0.5em", color: focused ? "#000" : "#888", textTransform: "uppercase", marginBottom: "10px", transition: "color 0.3s ease" },
+    }, label),
+    React.createElement("div", {
+      style: { borderBottom: `1px solid ${focused ? "#000" : "#e8e8e8"}`, transition: "border-color 0.3s ease", paddingBottom: "10px" },
+    },
+      React.createElement("input", {
+        type, value,
+        onChange: (e) => onChange(e.target.value),
+        onFocus, onBlur,
+        style: {
+          width: "100%", border: "none", background: "transparent",
+          fontSize: "16px", color: "#000", outline: "none",
+          letterSpacing: "0.04em", fontFamily: "'Helvetica Neue', Arial, sans-serif",
+        },
+      })
+    )
+  );
+}
 
-const selectStyle = {
-  width: "100%", padding: "12px 16px",
-  background: "#0d0d0d", border: "1px solid #1a1a1a",
-  borderRadius: "12px", color: "#fff", fontSize: "13px",
-  fontFamily: "'Helvetica Neue', Arial, sans-serif",
-  outline: "none", cursor: "pointer", appearance: "none", display: "block",
-};
+function DashNumberField({ label, unit, value, onChange, focused, onFocus, onBlur }) {
+  return React.createElement("div", { style: { marginBottom: "28px" } },
+    React.createElement("div", {
+      style: { fontSize: "7px", letterSpacing: "0.5em", color: focused ? "#000" : "#888", textTransform: "uppercase", marginBottom: "10px", transition: "color 0.3s ease" },
+    }, label),
+    React.createElement("div", {
+      style: { display: "flex", alignItems: "baseline", gap: "8px", borderBottom: `1px solid ${focused ? "#000" : "#e8e8e8"}`, paddingBottom: "10px", transition: "border-color 0.3s ease" },
+    },
+      React.createElement("input", {
+        type: "number", value,
+        onChange: (e) => onChange(e.target.value),
+        onFocus, onBlur,
+        placeholder: "—",
+        style: {
+          flex: 1, border: "none", background: "transparent",
+          fontSize: "clamp(20px,3vw,32px)", fontFamily: "'Bebas Neue', Impact",
+          color: "#000", outline: "none", letterSpacing: "0.02em",
+        },
+      }),
+      React.createElement("span", {
+        style: { fontSize: "7px", letterSpacing: "0.4em", color: "#aaa", textTransform: "uppercase" },
+      }, unit)
+    )
+  );
+}
 
-const tagStyle = {
-  fontSize: "9px", letterSpacing: "0.2em",
-  color: "#fff", textTransform: "uppercase",
+const statTagStyle = {
+  fontSize: "7px", letterSpacing: "0.3em",
+  color: "#666", textTransform: "uppercase",
 };
 
 export default Dashboard;

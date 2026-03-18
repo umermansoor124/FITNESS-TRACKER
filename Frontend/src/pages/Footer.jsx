@@ -1,100 +1,263 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 function Footer() {
-  const canvasRef = useRef(null);
+  const [mobile, setMobile] = useState(window.innerWidth < 768);
+  const [tab, setTab] = useState(window.innerWidth < 1024);
+  const [hovLink, setHovLink] = useState(null);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    const resize = () => { canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight; };
-    resize();
-    window.addEventListener("resize", resize);
-    let frame;
-    const draw = () => {
-      if (!canvas.width || !canvas.height) return;
-      const img = ctx.createImageData(canvas.width, canvas.height);
-      for (let i = 0; i < img.data.length; i += 4) {
-        const v = Math.random() * 12;
-        img.data[i] = v; img.data[i+1] = v; img.data[i+2] = v; img.data[i+3] = 15;
-      }
-      ctx.putImageData(img, 0, 0);
-      frame = requestAnimationFrame(draw);
+    const onResize = () => {
+      setMobile(window.innerWidth < 768);
+      setTab(window.innerWidth < 1024);
     };
-    draw();
-    return () => { cancelAnimationFrame(frame); window.removeEventListener("resize", resize); };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  const links = [
-    { title: "Features", items: ["Dashboard", "Workouts", "BMI Calc", "Profile"] },
-    { title: "Support", items: ["About", "Contact", "Privacy", "Terms"] },
+  const navLinks = [
+    { label: "Dashboard", href: "/dashboard" },
+    { label: "BMI Calculator", href: "/bmi" },
+    { label: "Profile", href: "/profile" },
+    { label: "Workouts", href: "/dashboard" },
+    { label: "Login", href: "/login" },
+    { label: "Signup", href: "/signup" },
   ];
 
   return React.createElement(
     "footer",
-    { style: { background: "#050505", padding: "24px" } },
-    React.createElement(
-      "div",
-      {
+    {
+      style: {
+        background: "#fff",
+        fontFamily: "'Helvetica Neue', Arial, sans-serif",
+        borderTop: "1px solid #f0f0f0",
+        position: "relative",
+        overflow: "hidden",
+      },
+    },
+
+    // ── TOP BAND ──
+    React.createElement("div", {
+      style: {
+        borderBottom: "1px solid #f0f0f0",
+        padding: mobile ? "32px 24px" : "24px 80px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: "16px",
+        flexWrap: "wrap",
+      },
+    },
+      React.createElement("div", {
+        style: { display: "flex", alignItems: "center", gap: "12px" },
+      },
+        React.createElement("div", {
+          style: {
+            width: "6px", height: "6px",
+            borderRadius: "50%", background: "#000",
+            animation: "bPulse 2s ease-in-out infinite",
+          },
+        }),
+        React.createElement("span", {
+          style: { fontSize: "8px", letterSpacing: "0.5em", color: "#bbb", textTransform: "uppercase" },
+        }, "All Systems Operational"),
+      ),
+      React.createElement("span", {
+        style: { fontSize: "8px", letterSpacing: "0.5em", color: "#e0e0e0", textTransform: "uppercase" },
+      }, "Est. 2024 — Vol. 01"),
+    ),
+
+    // ── HERO BRAND BLOCK ──
+    React.createElement("div", {
+      style: {
+        padding: mobile ? "60px 24px 48px" : tab ? "80px 48px 64px" : "100px 80px 80px",
+        borderBottom: "1px solid #f0f0f0",
+        position: "relative",
+        overflow: "hidden",
+      },
+    },
+
+      // Giant ghost text
+      React.createElement("div", {
         style: {
-          position: "relative", maxWidth: "1200px", margin: "0 auto",
-          background: "rgba(10,10,10,0.98)", border: "1px solid #161616",
-          borderRadius: "32px", overflow: "hidden", padding: "48px 48px 32px",
+          position: "absolute",
+          right: mobile ? "-10px" : "-20px",
+          bottom: "-30px",
+          fontSize: mobile ? "38vw" : "22vw",
+          fontFamily: "'Bebas Neue', Impact",
+          color: "transparent",
+          WebkitTextStroke: "1.5px #f5f5f5",
+          userSelect: "none",
+          pointerEvents: "none",
+          lineHeight: 1,
+          letterSpacing: "-0.02em",
+        },
+      }, "FT"),
+
+      React.createElement("div", {
+        style: {
+          position: "relative", zIndex: 2,
+          display: "flex",
+          flexDirection: mobile ? "column" : "row",
+          alignItems: mobile ? "flex-start" : "flex-end",
+          justifyContent: "space-between",
+          gap: "40px",
         },
       },
-      React.createElement("canvas", { ref: canvasRef, style: { position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 0 } }),
-      React.createElement("div", { style: { position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)", width: "50%", height: "1px", background: "linear-gradient(90deg, transparent, #C0392B 40%, #C0392B 60%, transparent)", zIndex: 1 } }),
-      React.createElement("div", { style: { position: "absolute", bottom: "-16px", left: "50%", transform: "translateX(-50%)", fontSize: "clamp(60px, 12vw, 130px)", fontFamily: "'Bebas Neue', Impact", letterSpacing: "0.05em", color: "transparent", WebkitTextStroke: "1px #151515", userSelect: "none", whiteSpace: "nowrap", zIndex: 0, lineHeight: 1, pointerEvents: "none" } }, "FITNESS"),
-      React.createElement(
-        "div",
-        { style: { position: "relative", zIndex: 2 } },
-        React.createElement(
-          "div",
-          { style: { display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr", gap: "48px", marginBottom: "40px" } },
-          React.createElement(
-            "div",
-            null,
-            React.createElement("div", { style: { fontSize: "28px", fontFamily: "'Bebas Neue', Impact", letterSpacing: "0.12em", color: "#fff", lineHeight: 1, marginBottom: "4px" } }, "FITNESS"),
-            React.createElement("div", { style: { fontSize: "8px", letterSpacing: "0.4em", color: "#C0392B", marginBottom: "16px", textTransform: "uppercase" } }, "Tracker"),
-            React.createElement("p", { style: { color: "#3a3a3a", fontSize: "12px", lineHeight: "1.9", maxWidth: "240px", margin: 0 } }, "Track your workouts, monitor your progress, and achieve your fitness goals.")
+
+        // Left — Big brand
+        React.createElement("div", null,
+          React.createElement("div", {
+            style: {
+              fontSize: "8px", letterSpacing: "0.6em",
+              color: "#ccc", textTransform: "uppercase",
+              marginBottom: "16px",
+              display: "flex", alignItems: "center", gap: "12px",
+            },
+          },
+            React.createElement("span", { style: { display: "inline-block", width: "20px", height: "1px", background: "#ddd" } }),
+            "Since 2026"
           ),
-          ...links.map(col =>
-            React.createElement(
-              "div",
-              { key: col.title },
-              React.createElement("div", { style: { fontSize: "9px", letterSpacing: "0.35em", color: "#C0392B", marginBottom: "16px", fontWeight: 500, textTransform: "uppercase" } }, col.title),
-              React.createElement(
-                "div",
-                { style: { display: "flex", flexDirection: "column", gap: "10px" } },
-                ...col.items.map(item =>
-                  React.createElement("a", {
-                    key: item, href: "#",
-                    style: { color: "#333", textDecoration: "none", fontSize: "11px", letterSpacing: "0.12em", textTransform: "uppercase", transition: "color 0.3s ease" },
-                    onMouseEnter: (e) => e.currentTarget.style.color = "#C0392B",
-                    onMouseLeave: (e) => e.currentTarget.style.color = "#333",
-                  }, item)
-                )
-              )
-            )
-          )
+          React.createElement("h2", {
+            style: {
+              fontSize: mobile ? "18vw" : "clamp(72px,12vw,160px)",
+              fontFamily: "'Bebas Neue', Impact",
+              letterSpacing: "-0.01em",
+              color: "#000", lineHeight: 0.88,
+              margin: "0 0 8px",
+            },
+          }, "FITNESS"),
+          React.createElement("h2", {
+            style: {
+              fontSize: mobile ? "18vw" : "clamp(72px,12vw,160px)",
+              fontFamily: "'Bebas Neue', Impact",
+              letterSpacing: "-0.01em",
+              color: "transparent",
+              WebkitTextStroke: "2px #e8e8e8",
+              lineHeight: 0.88, margin: 0,
+            },
+          }, "TRACKER"),
         ),
-        React.createElement("div", { style: { height: "1px", background: "linear-gradient(90deg, transparent, #1a1a1a 20%, #1a1a1a 80%, transparent)", marginBottom: "24px" } }),
-        React.createElement(
-          "div",
-          { style: { display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" } },
-          React.createElement("div", { style: { fontSize: "11px", color: "#252525", letterSpacing: "0.08em" } }, "© 2024 Fitness Tracker. All rights reserved."),
-          React.createElement(
-            "div",
-            { style: { display: "flex", alignItems: "center", gap: "7px", padding: "6px 14px", borderRadius: "100px", border: "1px solid #1a1a1a", background: "rgba(192,57,43,0.04)" } },
-            React.createElement("div", { style: { width: "5px", height: "5px", borderRadius: "50%", background: "#C0392B", animation: "ftPulse 2s ease-in-out infinite" } }),
-            React.createElement("span", { style: { fontSize: "9px", color: "#333", letterSpacing: "0.15em", textTransform: "uppercase" } }, "All Systems Live")
+
+        // Right — tagline + CTA
+        React.createElement("div", {
+          style: { maxWidth: "300px" },
+        },
+          React.createElement("p", {
+            style: {
+              color: "#bbb", fontSize: "11px",
+              lineHeight: 2.3, letterSpacing: "0.06em",
+              margin: "0 0 32px",
+            },
+          }, "Built for those who refuse to quit. Track every session. Own every result. Dominate every goal."),
+
+          React.createElement("button", {
+            onClick: () => window.scrollTo({ top: 0, behavior: "smooth" }),
+            style: {
+              padding: "14px 36px",
+              background: "#000", border: "none",
+              color: "#fff", fontSize: "8px",
+              letterSpacing: "0.45em", textTransform: "uppercase",
+              cursor: "pointer",
+              fontFamily: "'Helvetica Neue', Arial, sans-serif",
+              transition: "background 0.3s ease",
+              display: "flex", alignItems: "center", gap: "10px",
+            },
+            onMouseEnter: (e) => e.currentTarget.style.background = "#222",
+            onMouseLeave: (e) => e.currentTarget.style.background = "#000",
+          },
+            "Back to Top",
+            React.createElement("span", { style: { fontSize: "12px" } }, "↑")
           )
         )
       )
     ),
+
+    // ── NAV LINKS — big list ──
+    React.createElement("div", {
+      style: {
+        borderBottom: "1px solid #f0f0f0",
+      },
+    },
+      navLinks.map((link, i) =>
+        React.createElement("div", {
+          key: link.label,
+          onMouseEnter: () => setHovLink(i),
+          onMouseLeave: () => setHovLink(null),
+          onClick: () => window.location.href = link.href,
+          style: {
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: mobile ? "20px 24px" : "22px 80px",
+            borderBottom: i < navLinks.length - 1 ? "1px solid #f8f8f8" : "none",
+            cursor: "pointer",
+            background: hovLink === i ? "#fafafa" : "#fff",
+            transition: "background 0.3s ease",
+          },
+        },
+          // Left
+          React.createElement("div", {
+            style: { display: "flex", alignItems: "center", gap: mobile ? "16px" : "28px" },
+          },
+            React.createElement("span", {
+              style: {
+                fontSize: "8px", letterSpacing: "0.4em",
+                color: hovLink === i ? "#000" : "#ddd",
+                fontFamily: "'Helvetica Neue', Arial, sans-serif",
+                transition: "color 0.3s ease",
+                minWidth: "24px",
+              },
+            }, `0${i + 1}`),
+            React.createElement("span", {
+              style: {
+                fontSize: mobile ? "24px" : "clamp(24px,4vw,48px)",
+                fontFamily: "'Bebas Neue', Impact",
+                letterSpacing: "0.04em",
+                color: hovLink === i ? "#000" : "#ccc",
+                transition: "color 0.3s ease",
+              },
+            }, link.label.toUpperCase()),
+          ),
+
+          // Right arrow
+          React.createElement("span", {
+            style: {
+              fontSize: mobile ? "16px" : "20px",
+              color: hovLink === i ? "#000" : "#e0e0e0",
+              transition: "all 0.3s ease",
+              transform: hovLink === i ? "translateX(4px)" : "none",
+            },
+          }, "→")
+        )
+      )
+    ),
+
+    // ── BOTTOM BAR ──
+    React.createElement("div", {
+      style: {
+        padding: mobile ? "20px 24px" : "20px 80px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        flexWrap: "wrap",
+        gap: "12px",
+      },
+    },
+      React.createElement("span", {
+        style: { fontSize: "8px", letterSpacing: "0.4em", color: "#ddd", textTransform: "uppercase" },
+      }, "© 2024 Fitness Tracker"),
+
+      React.createElement("span", {
+        style: { fontSize: "8px", letterSpacing: "0.4em", color: "#eee", textTransform: "uppercase" },
+      }, "All Rights Reserved"),
+    ),
+
     React.createElement("style", null, `
       @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap');
-      @keyframes ftPulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.7)} }
+      @keyframes bPulse {
+        0%,100%{opacity:1;transform:scale(1)}
+        50%{opacity:0.2;transform:scale(0.5)}
+      }
     `)
   );
 }

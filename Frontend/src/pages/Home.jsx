@@ -2,582 +2,484 @@ import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 
-// ── GRAIN ──
-function GrainCanvas() {
+function useReveal() {
   const ref = useRef(null);
-  useEffect(() => {
-    const canvas = ref.current;
-    const ctx = canvas.getContext("2d");
-    const resize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
-    resize();
-    window.addEventListener("resize", resize);
-    let frame;
-    const draw = () => {
-      const img = ctx.createImageData(canvas.width, canvas.height);
-      for (let i = 0; i < img.data.length; i += 4) {
-        const v = Math.random() * 18;
-        img.data[i] = v; img.data[i+1] = v; img.data[i+2] = v; img.data[i+3] = 20;
-      }
-      ctx.putImageData(img, 0, 0);
-      frame = requestAnimationFrame(draw);
-    };
-    draw();
-    return () => { cancelAnimationFrame(frame); window.removeEventListener("resize", resize); };
-  }, []);
-  return React.createElement("canvas", {
-    ref, style: { position: "fixed", inset: 0, pointerEvents: "none", zIndex: 1 }
-  });
-}
-
-// ── SCANLINES ──
-function Scanlines() {
-  return React.createElement("div", {
-    style: {
-      position: "fixed", inset: 0, pointerEvents: "none", zIndex: 2,
-      background: "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px)",
-    }
-  });
-}
-
-// ── GLITCH TEXT ──
-function GlitchText({ text, size, color = "#fff", stroke }) {
-  const [glitch, setGlitch] = useState(false);
-  const [glitch2, setGlitch2] = useState(false);
-
-  useEffect(() => {
-    const t1 = setInterval(() => {
-      setGlitch(true);
-      setTimeout(() => setGlitch(false), 80);
-    }, Math.random() * 4000 + 2000);
-
-    const t2 = setInterval(() => {
-      setGlitch2(true);
-      setTimeout(() => setGlitch2(false), 120);
-    }, Math.random() * 5000 + 3000);
-
-    return () => { clearInterval(t1); clearInterval(t2); };
-  }, []);
-
-  const baseStyle = {
-    fontSize: size,
-    fontFamily: "'Bebas Neue', Impact, sans-serif",
-    letterSpacing: "0.02em",
-    color: stroke ? "transparent" : color,
-    WebkitTextStroke: stroke ? `1px ${stroke}` : "none",
-    display: "block",
-    lineHeight: 0.88,
-  };
-
-  return React.createElement("div", { style: { position: "relative", display: "block" } },
-    React.createElement("span", {
-      style: {
-        ...baseStyle,
-        textShadow: glitch ? "4px 0 #C0392B, -4px 0 rgba(0,200,255,0.4)" : "none",
-        transform: glitch ? `translate(${Math.random()*6-3}px,${Math.random()*3-1}px) skewX(${Math.random()*2-1}deg)` : "none",
-        display: "block",
-        transition: "none",
-        clipPath: glitch2 ? "inset(20% 0 30% 0)" : "none",
-      }
-    }, text),
-    (glitch || glitch2) && React.createElement("span", {
-      style: {
-        ...baseStyle,
-        position: "absolute", top: `${Math.random()*8-4}px`, left: `${Math.random()*8-4}px`,
-        color: "#C0392B", opacity: 0.5,
-        clipPath: "inset(40% 0 20% 0)",
-        pointerEvents: "none",
-      }
-    }, text)
-  );
-}
-
-// ── MARQUEE ──
-function Marquee({ items, reverse = false }) {
-  const ref = useRef(null);
+  const [visible, setVisible] = useState(false);
   useEffect(() => {
     const el = ref.current;
-    let pos = reverse ? -50 : 0;
-    let id;
-    const run = () => {
-      pos += reverse ? 0.025 : -0.025;
-      if (!reverse && pos <= -50) pos = 0;
-      if (reverse && pos >= 0) pos = -50;
-      el.style.transform = `translateX(${pos}%)`;
-      id = requestAnimationFrame(run);
-    };
-    id = requestAnimationFrame(run);
-    return () => cancelAnimationFrame(id);
-  }, [reverse]);
-
-  const all = [...items, ...items, ...items, ...items];
-  return React.createElement("div", { style: { overflow: "hidden", width: "100%" } },
-    React.createElement("div", {
-      ref, style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", willChange: "transform" }
-    },
-      all.map((item, i) =>
-        React.createElement("span", { key: i, style: { display: "inline-flex", alignItems: "center" } },
-          React.createElement("span", {
-            style: {
-              fontSize: "11px", letterSpacing: "0.45em", textTransform: "uppercase",
-              fontFamily: "'Bebas Neue', Impact",
-              color: item.red ? "#C0392B" : "#181818",
-              padding: "0 20px",
-            }
-          }, item.text),
-          React.createElement("span", { style: { color: "#C0392B", fontSize: "6px" } }, "◆")
-        )
-      )
-    )
-  );
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([e]) => { if (e.isIntersecting) { setVisible(true); obs.disconnect(); } },
+      { threshold: 0.1 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+  return [ref, visible];
 }
 
-// ── NUMBER TICKER ──
-function Ticker({ end, suffix = "" }) {
+function Counter({ end, suffix = "" }) {
+  const [ref, visible] = useReveal();
   const [n, setN] = useState(0);
+  const done = useRef(false);
   useEffect(() => {
+    if (!visible || done.current) return;
+    done.current = true;
     let c = 0;
-    const s = Math.ceil(end / 60);
+    const step = Math.ceil(end / 60);
     const t = setInterval(() => {
-      c = Math.min(c + s, end);
+      c = Math.min(c + step, end);
       setN(c);
       if (c >= end) clearInterval(t);
-    }, 25);
+    }, 20);
     return () => clearInterval(t);
-  }, [end]);
-  return React.createElement("span", null, n.toLocaleString() + suffix);
+  }, [visible, end]);
+  return React.createElement("span", { ref }, n.toLocaleString() + suffix);
 }
 
-// ── FEATURE CARD ──
-function Card({ icon, title, desc, index }) {
-  const [hov, setHov] = useState(false);
-  return React.createElement("div", {
-    onMouseEnter: () => setHov(true),
-    onMouseLeave: () => setHov(false),
-    style: {
-      position: "relative",
-      padding: "40px 32px",
-      background: hov ? "rgba(192,57,43,0.04)" : "#070707",
-      borderRight: "1px solid #0d0d0d",
-      borderBottom: "1px solid #0d0d0d",
-      transition: "background 0.4s ease",
-      cursor: "default",
-      overflow: "hidden",
-    }
-  },
-    // Top full border on hover
-    React.createElement("div", {
-      style: {
-        position: "absolute", top: 0, left: 0,
-        width: hov ? "100%" : "0%", height: "1px",
-        background: "linear-gradient(90deg, #C0392B, transparent)",
-        transition: "width 0.5s ease",
-      }
-    }),
-
-    // Index number bg
-    React.createElement("div", {
-      style: {
-        position: "absolute", top: "16px", right: "20px",
-        fontSize: "80px", fontFamily: "'Bebas Neue', Impact",
-        color: hov ? "rgba(192,57,43,0.06)" : "rgba(255,255,255,0.02)",
-        lineHeight: 1, userSelect: "none", transition: "color 0.4s ease",
-        pointerEvents: "none",
-      }
-    }, `0${index + 1}`),
-
-    React.createElement("div", {
-      style: {
-        width: "40px", height: "40px",
-        border: `1px solid ${hov ? "#C0392B" : "#111"}`,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: "18px", marginBottom: "24px",
-        transition: "border-color 0.3s ease",
-      }
-    }, icon),
-
-    React.createElement("div", {
-      style: {
-        fontSize: "13px", fontFamily: "'Bebas Neue', Impact",
-        letterSpacing: "0.18em", color: hov ? "#C0392B" : "#fff",
-        marginBottom: "12px", transition: "color 0.3s ease",
-      }
-    }, title),
-
-    React.createElement("div", {
-      style: { fontSize: "12px", color: "#2e2e2e", lineHeight: 2, letterSpacing: "0.04em" }
-    }, desc)
-  );
-}
-
-// ── BUTTON ──
-function Btn({ label, primary, onClick }) {
-  const [hov, setHov] = useState(false);
-  return React.createElement("button", {
-    onClick,
-    onMouseEnter: () => setHov(true),
-    onMouseLeave: () => setHov(false),
-    style: {
-      position: "relative",
-      padding: "13px 32px",
-      background: primary ? (hov ? "#a93226" : "#C0392B") : "transparent",
-      border: `1px solid ${primary ? "#C0392B" : (hov ? "#444" : "#1e1e1e")}`,
-      color: primary ? "#fff" : (hov ? "#888" : "#333"),
-      fontSize: "9px", letterSpacing: "0.4em", textTransform: "uppercase",
-      cursor: "pointer", fontFamily: "'Helvetica Neue', Arial, sans-serif",
-      transition: "all 0.3s ease",
-      clipPath: "polygon(10px 0%,100% 0%,calc(100% - 10px) 100%,0% 100%)",
-      boxShadow: primary && hov ? "0 0 40px rgba(192,57,43,0.25), inset 0 0 20px rgba(192,57,43,0.1)" : "none",
-      overflow: "hidden",
-    }
-  },
-    // Shimmer
-    primary && hov && React.createElement("span", {
-      style: {
-        position: "absolute", top: 0, left: "-100%", width: "60%", height: "100%",
-        background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent)",
-        animation: "shimmer 0.6s ease",
-        pointerEvents: "none",
-      }
-    }),
-    label
-  );
-}
-
-// ── HOME ──
 function Home() {
   const navigate = useNavigate();
   const { isLoggedIn } = useSelector((s) => s.auth);
-  const [show, setShow] = useState(false);
+  const [scrollY, setScrollY] = useState(0);
+  const [mouse, setMouse] = useState({ x: 0.5, y: 0.5 });
   const [mobile, setMobile] = useState(window.innerWidth < 768);
-  const [tab, setTab] = useState(window.innerWidth < 1024);
-  const heroRef = useRef(null);
+  const [show, setShow] = useState(false);
+  const [activeFeature, setActiveFeature] = useState(0);
 
   useEffect(() => {
-    setTimeout(() => setShow(true), 80);
-    const onResize = () => {
-      setMobile(window.innerWidth < 768);
-      setTab(window.innerWidth < 1024);
+    setTimeout(() => setShow(true), 100);
+    const s = () => setScrollY(window.scrollY);
+    const m = (e) => setMouse({ x: e.clientX / window.innerWidth, y: e.clientY / window.innerHeight });
+    const r = () => setMobile(window.innerWidth < 768);
+    window.addEventListener("scroll", s, { passive: true });
+    window.addEventListener("mousemove", m);
+    window.addEventListener("resize", r);
+    return () => {
+      window.removeEventListener("scroll", s);
+      window.removeEventListener("mousemove", m);
+      window.removeEventListener("resize", r);
     };
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  const mq1 = [
-    { text: "Train Hard", red: false }, { text: "No Mercy", red: true },
-    { text: "Zero Excuses", red: false }, { text: "Dominate", red: true },
-    { text: "Built Different", red: false }, { text: "Stay Elite", red: true },
-  ];
-  const mq2 = [
-    { text: "Fitness Tracker", red: true }, { text: "Track Progress", red: false },
-    { text: "Own Your Body", red: true }, { text: "Max Output", red: false },
-    { text: "Push Limits", red: true }, { text: "Zero Weakness", red: false },
-  ];
-
   const features = [
-    { icon: "⚡", title: "Workout Logger", desc: "Log every set, every rep. Precision data for peak performance." },
-    { icon: "🔥", title: "Calorie Intel", desc: "Real-time burn tracking. Own your numbers like an elite athlete." },
-    { icon: "📈", title: "Progress HQ", desc: "Mission control for gains. Visual data from day one." },
-    { icon: "⚖️", title: "Body Metrics", desc: "BMI, weight, height. Complete body intelligence on demand." },
+    { title: "Workout Logger", sub: "Track every rep", desc: "Log every set, every rep, every drop of sweat. Real-time tracking built for athletes who demand precision.", num: "01" },
+    { title: "Calorie Engine", sub: "Know your burn", desc: "Precision calorie tracking that keeps you accountable. Your numbers, your control, your results.", num: "02" },
+    { title: "Progress Intel", sub: "See your gains", desc: "Visual analytics that reveal your transformation. Data-driven insights from your very first session.", num: "03" },
+    { title: "Body Analysis", sub: "Know your body", desc: "Complete BMI calculator and body metrics. Understand where you are. Know where you're going.", num: "04" },
   ];
 
   return React.createElement("div", {
-    style: { background: "#060606", minHeight: "100vh", fontFamily: "'Helvetica Neue', Arial, sans-serif", overflowX: "hidden" }
+    style: { background: "#fafafa", color: "#000", fontFamily: "'Helvetica Neue', Arial, sans-serif", overflowX: "hidden" }
   },
-    React.createElement(GrainCanvas, null),
-    React.createElement(Scanlines, null),
 
-    // ══════════════════════════════
-    // HERO
-    // ══════════════════════════════
+    // ══════════════════════════════════════
+    // 01 — HERO — Split layout
+    // ══════════════════════════════════════
     React.createElement("section", {
-      ref: heroRef,
       style: {
-        position: "relative", minHeight: "100vh",
-        display: "flex", flexDirection: "column",
-        justifyContent: "center", zIndex: 3, overflow: "hidden",
+        minHeight: "100vh", display: "grid",
+        gridTemplateColumns: mobile ? "1fr" : "1fr 1fr",
+        position: "relative", overflow: "hidden",
       }
     },
 
-      // BG number
+      // LEFT — Dark side
       React.createElement("div", {
         style: {
-          position: "absolute", right: mobile ? "-20px" : "40px", top: "50%",
-          transform: "translateY(-50%)",
-          fontSize: mobile ? "40vw" : "32vw",
-          fontFamily: "'Bebas Neue', Impact",
-          color: "transparent", WebkitTextStroke: "1px #0d0d0d",
-          userSelect: "none", pointerEvents: "none", lineHeight: 1,
-          opacity: show ? 1 : 0, transition: "opacity 1.5s ease 1s",
-        }
-      }, "01"),
-
-      // Top marquee strip
-      React.createElement("div", {
-        style: {
-          position: "absolute", top: mobile ? "72px" : "88px", left: 0, right: 0,
-          borderTop: "1px solid #0f0f0f", borderBottom: "1px solid #0f0f0f",
-          padding: "8px 0",
-          opacity: show ? 0.8 : 0, transition: "opacity 1s ease 0.4s",
-        }
-      }, React.createElement(Marquee, { items: mq1 })),
-
-      // Left accent line
-      !mobile && React.createElement("div", {
-        style: {
-          position: "absolute", left: "56px", top: "15%", bottom: "15%",
-          width: "1px",
-          background: "linear-gradient(180deg, transparent, #C0392B 40%, #C0392B 60%, transparent)",
-          opacity: show ? 1 : 0, transition: "opacity 1s ease 0.8s",
-        }
-      }),
-
-      // ── MAIN TEXT BLOCK ──
-      React.createElement("div", {
-        style: {
-          padding: mobile ? "160px 28px 100px" : tab ? "0 56px" : "0 96px",
-          zIndex: 2,
+          background: "#0a0a0a", display: "flex", flexDirection: "column",
+          justifyContent: "flex-end", padding: mobile ? "120px 32px 48px" : "0 64px 72px",
+          position: "relative", overflow: "hidden", minHeight: mobile ? "60vh" : "100vh",
         }
       },
 
-        // Eyebrow
+        // Animated circle bg
         React.createElement("div", {
           style: {
-            display: "inline-flex", alignItems: "center", gap: "10px",
-            marginBottom: "28px",
-            opacity: show ? 1 : 0,
-            transform: show ? "none" : "translateY(10px)",
-            transition: "all 0.7s ease 0.3s",
+            position: "absolute",
+            width: "500px", height: "500px", borderRadius: "50%",
+            border: "1px solid rgba(255,255,255,0.04)",
+            top: "50%", left: "50%",
+            transform: `translate(calc(-50% + ${(mouse.x - 0.5) * 20}px), calc(-50% + ${(mouse.y - 0.5) * 20}px))`,
+            transition: "transform 0.8s ease",
           }
-        },
-          React.createElement("div", {
-            style: { width: "28px", height: "1px", background: "#C0392B" }
-          }),
-          React.createElement("span", {
-            style: { fontSize: "8px", letterSpacing: "0.55em", color: "#C0392B", textTransform: "uppercase" }
-          }, "Fitness Tracker"),
-          React.createElement("div", {
-            style: {
-              width: "6px", height: "6px", borderRadius: "50%", background: "#C0392B",
-              animation: "rPulse 1.5s ease-in-out infinite",
-            }
-          }),
-          React.createElement("span", {
-            style: { fontSize: "8px", letterSpacing: "0.4em", color: "#1e1e1e", textTransform: "uppercase" }
-          }, "v2.0 — Online"),
-        ),
+        }),
+        React.createElement("div", {
+          style: {
+            position: "absolute",
+            width: "300px", height: "300px", borderRadius: "50%",
+            border: "1px solid rgba(255,255,255,0.06)",
+            top: "50%", left: "50%",
+            transform: `translate(calc(-50% + ${(mouse.x - 0.5) * 40}px), calc(-50% + ${(mouse.y - 0.5) * 40}px))`,
+            transition: "transform 0.5s ease",
+          }
+        }),
 
-        // Hero titles
+        // Tag
+        // React.createElement("div", {
+        //   style: {
+        //     position: "absolute", top: "40px", left: "64px",
+        //     fontSize: "8px", letterSpacing: "0.5em", color: "#333",
+        //     textTransform: "uppercase",
+        //     opacity: show ? 1 : 0, transition: "opacity 0.8s ease 0.3s",
+        //   }
+        // }, "Fitness Tracker — 2024"),
+
+        // Main text
         React.createElement("div", {
           style: {
             opacity: show ? 1 : 0,
             transform: show ? "none" : "translateY(30px)",
-            transition: "all 0.9s ease 0.4s",
-            marginBottom: "8px",
+            transition: "all 1.2s cubic-bezier(0.16,1,0.3,1) 0.4s",
           }
         },
-          React.createElement(GlitchText, { text: "TRAIN.", size: mobile ? "18vw" : "clamp(72px,11vw,148px)" }),
-          React.createElement(GlitchText, {
-            text: "TRACK.", size: mobile ? "18vw" : "clamp(72px,11vw,148px)",
-            stroke: "#1c1c1c",
-          }),
-          React.createElement(GlitchText, {
-            text: "DOMINATE.", size: mobile ? "14vw" : "clamp(54px,8.5vw,112px)",
-            color: "#C0392B",
-          }),
-        ),
+          React.createElement("h1", {
+            style: {
+              fontSize: mobile ? "14vw" : "clamp(64px,9vw,120px)",
+              fontFamily: "'Bebas Neue', Impact",
+              color: "#fff", lineHeight: 0.9, margin: "0 0 32px",
+              letterSpacing: "0.01em",
+              transform: `translateY(${scrollY * -0.08}px)`,
+            }
+          }, "TRAIN\nTRACK\nDOMINATE"),
 
-        // Bottom row
-        React.createElement("div", {
-          style: {
-            display: "flex",
-            flexDirection: mobile ? "column" : "row",
-            alignItems: mobile ? "flex-start" : "flex-end",
-            justifyContent: "space-between",
-            gap: "28px", marginTop: "36px",
-            opacity: show ? 1 : 0,
-            transform: show ? "none" : "translateY(20px)",
-            transition: "all 0.9s ease 0.7s",
-          }
-        },
+          React.createElement("p", {
+            style: { color: "#444", fontSize: "11px", letterSpacing: "0.12em", lineHeight: 2.2, margin: "0 0 40px", maxWidth: "280px", textTransform: "uppercase" }
+          }, "Built for those who refuse to quit. Track every session. Own every result."),
 
-          React.createElement("div", { style: { maxWidth: "300px" } },
-            React.createElement("div", {
-              style: { width: "24px", height: "1px", background: "#C0392B", marginBottom: "12px" }
-            }),
-            React.createElement("p", {
-              style: { color: "#2a2a2a", fontSize: "10px", letterSpacing: "0.2em", lineHeight: 2.2, margin: 0, textTransform: "uppercase" }
-            }, "Where discipline meets data. Your mission. Your metrics. Your legacy.")
-          ),
-
-          React.createElement("div", { style: { display: "flex", gap: "10px", flexWrap: "wrap" } },
-            React.createElement(Btn, {
-              primary: true,
-              label: isLoggedIn ? "Enter HQ" : "Deploy Now",
-              onClick: () => navigate(isLoggedIn ? "/dashboard" : "/signup"),
-            }),
-            React.createElement(Btn, {
-              primary: false, label: "Body Analysis",
-              onClick: () => navigate("/bmi"),
-            })
-          )
+          React.createElement("button", {
+            onClick: () => navigate(isLoggedIn ? "/dashboard" : "/signup"),
+            style: {
+              padding: "16px 40px", background: "#fff", border: "none",
+              color: "#000", fontSize: "9px", letterSpacing: "0.45em",
+              textTransform: "uppercase", cursor: "pointer",
+              fontFamily: "'Helvetica Neue', Arial, sans-serif",
+              transition: "all 0.3s ease",
+            },
+            onMouseEnter: (e) => { e.currentTarget.style.background = "#e0e0e0"; },
+            onMouseLeave: (e) => { e.currentTarget.style.background = "#fff"; },
+          }, isLoggedIn ? "Enter Dashboard" : "Start Now"),
         )
       ),
 
-      // Bottom marquee
-      React.createElement("div", {
-        style: {
-          position: "absolute", bottom: mobile ? "32px" : "48px", left: 0, right: 0,
-          borderTop: "1px solid #0f0f0f", borderBottom: "1px solid #0f0f0f",
-          padding: "8px 0",
-          opacity: show ? 0.8 : 0, transition: "opacity 1s ease 0.7s",
-        }
-      }, React.createElement(Marquee, { items: mq2, reverse: true }))
-    ),
-
-    // ══════════════════════════════
-    // STATS
-    // ══════════════════════════════
-    React.createElement("div", {
-      style: {
-        position: "relative", zIndex: 3,
-        borderTop: "1px solid #0f0f0f",
-        display: "grid",
-        gridTemplateColumns: mobile ? "1fr 1fr" : "4px 1fr 1fr 1fr 1fr",
-      }
-    },
-      !mobile && React.createElement("div", { style: { background: "#C0392B" } }),
-      ...[
-        { end: 10000, suffix: "+", label: "Operators" },
-        { end: 500000, suffix: "+", label: "Sessions" },
-        { end: 98, suffix: "%", label: "Goals Hit" },
-        { end: 4, suffix: ".9★", label: "Rating" },
-      ].map((s, i) =>
-        React.createElement("div", {
-          key: i,
-          style: {
-            padding: mobile ? "24px 16px" : "32px 28px", textAlign: "center",
-            borderRight: "1px solid #0f0f0f", borderBottom: mobile ? "1px solid #0f0f0f" : "none",
-          }
-        },
-          React.createElement("div", {
-            style: { fontSize: mobile ? "28px" : "clamp(28px,3.5vw,40px)", fontFamily: "'Bebas Neue', Impact", color: "#fff", lineHeight: 1, letterSpacing: "0.04em" }
-          }, React.createElement(Ticker, { end: s.end, suffix: s.suffix })),
-          React.createElement("div", {
-            style: { fontSize: "7px", letterSpacing: "0.4em", color: "#C0392B", textTransform: "uppercase", marginTop: "6px" }
-          }, s.label)
-        )
-      )
-    ),
-
-    // ══════════════════════════════
-    // FEATURES
-    // ══════════════════════════════
-    React.createElement("section", {
-      style: { position: "relative", zIndex: 3, borderTop: "1px solid #0f0f0f" }
-    },
-
-      // Header
-      React.createElement("div", {
-        style: {
-          padding: mobile ? "48px 28px 36px" : "64px 96px 48px",
-          display: "flex", alignItems: "center",
-          justifyContent: "space-between", flexWrap: "wrap", gap: "16px",
-          borderBottom: "1px solid #0f0f0f",
-        }
-      },
-        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "16px" } },
-          React.createElement("div", { style: { width: "3px", height: "36px", background: "#C0392B" } }),
-          React.createElement("div", null,
-            React.createElement("div", { style: { fontSize: "7px", letterSpacing: "0.55em", color: "#C0392B", textTransform: "uppercase", marginBottom: "4px" } }, "Capabilities"),
-            React.createElement("h2", {
-              style: { fontSize: mobile ? "32px" : "clamp(28px,4vw,52px)", fontFamily: "'Bebas Neue', Impact", letterSpacing: "0.06em", color: "#fff", lineHeight: 1, margin: 0 }
-            }, "MISSION ARSENAL")
-          )
-        ),
-        React.createElement("span", {
-          style: { fontSize: "8px", letterSpacing: "0.3em", color: "#111", textTransform: "uppercase" }
-        }, "04 Capabilities")
-      ),
-
-      // Grid
-      React.createElement("div", {
-        style: {
-          display: "grid",
-          gridTemplateColumns: mobile ? "1fr" : tab ? "1fr 1fr" : "repeat(4, 1fr)",
-        }
-      },
-        features.map((f, i) => React.createElement(Card, { key: f.title, ...f, index: i }))
-      )
-    ),
-
-    // ══════════════════════════════
-    // CTA SECTION
-    // ══════════════════════════════
-    React.createElement("section", {
-      style: {
-        position: "relative", zIndex: 3,
-        borderTop: "1px solid #0f0f0f",
-        padding: mobile ? "60px 28px 80px" : "100px 96px",
-        display: "flex", flexDirection: mobile ? "column" : "row",
-        alignItems: mobile ? "flex-start" : "center",
-        justifyContent: "space-between", gap: "48px",
-        overflow: "hidden",
-      }
-    },
-
-      // Left
-      React.createElement("div", { style: { position: "relative", zIndex: 2 } },
-        React.createElement("div", {
-          style: { fontSize: "7px", letterSpacing: "0.55em", color: "#C0392B", textTransform: "uppercase", marginBottom: "16px", display: "flex", alignItems: "center", gap: "8px" }
-        },
-          React.createElement("span", { style: { display: "inline-block", width: "20px", height: "1px", background: "#C0392B" } }),
-          "Final Briefing"
-        ),
-        React.createElement(GlitchText, { text: "READY TO", size: mobile ? "13vw" : "clamp(48px,7vw,88px)" }),
-        React.createElement(GlitchText, { text: "DOMINATE?", size: mobile ? "13vw" : "clamp(48px,7vw,88px)", color: "#C0392B" }),
-        React.createElement("p", {
-          style: { color: "#222", fontSize: "10px", letterSpacing: "0.2em", lineHeight: 2.2, textTransform: "uppercase", margin: "20px 0 0", maxWidth: "360px" }
-        }, "The mission begins the moment you decide to start. No shortcuts. No excuses.")
-      ),
-
-      // Right
-      React.createElement("div", {
-        style: { display: "flex", flexDirection: "column", gap: "16px", alignItems: "flex-start", position: "relative", zIndex: 2 }
-      },
-        React.createElement(Btn, {
-          primary: true,
-          label: isLoggedIn ? "Enter Dashboard" : "Begin Mission",
-          onClick: () => navigate(isLoggedIn ? "/dashboard" : "/signup"),
-        }),
-        React.createElement(Btn, {
-          primary: false, label: "Calculate BMI",
-          onClick: () => navigate("/bmi"),
-        }),
-        React.createElement("div", {
-          style: { display: "flex", alignItems: "center", gap: "8px", marginTop: "8px" }
-        },
-          React.createElement("div", { style: { width: "5px", height: "5px", borderRadius: "50%", background: "#C0392B", animation: "rPulse 1.5s ease-in-out infinite" } }),
-          React.createElement("span", { style: { fontSize: "8px", letterSpacing: "0.4em", color: "#1a1a1a", textTransform: "uppercase" } }, "Free to join — no commitment")
-        )
-      ),
-
-      // BG ghost
+      // RIGHT — White side
       !mobile && React.createElement("div", {
         style: {
-          position: "absolute", right: "-20px", bottom: "-40px",
-          fontSize: "28vw", fontFamily: "'Bebas Neue', Impact",
-          color: "transparent", WebkitTextStroke: "1px #0a0a0a",
-          userSelect: "none", pointerEvents: "none", lineHeight: 1,
-          zIndex: 1,
+          background: "#fafafa", display: "flex", flexDirection: "column",
+          justifyContent: "center", padding: "0 64px",
+          position: "relative", overflow: "hidden",
         }
-      }, "GO")
+      },
+
+        // Large number
+        React.createElement("div", {
+          style: {
+            position: "absolute", right: "-20px", bottom: "-20px",
+            fontSize: "40vw", fontFamily: "'Bebas Neue', Impact",
+            color: "transparent", WebkitTextStroke: "1px #ebebeb",
+            lineHeight: 1, userSelect: "none", pointerEvents: "none",
+            transform: `translateY(${scrollY * 0.05}px)`,
+          }
+        }, "F"),
+
+        React.createElement("div", { style: { position: "relative", zIndex: 2 } },
+          React.createElement("div", {
+            style: {
+              opacity: show ? 1 : 0, transition: "opacity 0.8s ease 0.8s",
+            }
+          },
+            React.createElement("div", {
+              style: { fontSize: "8px", letterSpacing: "0.5em", color: "#ccc", textTransform: "uppercase", marginBottom: "48px" }
+            }, "— Scroll to explore"),
+
+            // Mini stat cards
+            ...[
+              { n: 10000, s: "+", l: "Athletes" },
+              { n: 500000, s: "+", l: "Sessions" },
+              { n: 98, s: "%", l: "Goals Hit" },
+            ].map((st, i) =>
+              React.createElement("div", {
+                key: i,
+                style: {
+                  display: "flex", alignItems: "baseline", gap: "12px",
+                  padding: "20px 0", borderBottom: "1px solid #f0f0f0",
+                }
+              },
+                React.createElement("div", {
+                  style: { fontSize: "28px", fontFamily: "'Bebas Neue', Impact", color: "#000", letterSpacing: "0.02em" }
+                }, React.createElement(Counter, { end: st.n, suffix: st.s })),
+                React.createElement("div", {
+                  style: { fontSize: "8px", letterSpacing: "0.4em", color: "#ccc", textTransform: "uppercase" }
+                }, st.l)
+              )
+            ),
+
+            React.createElement("div", { style: { marginTop: "40px" } },
+              React.createElement("button", {
+                onClick: () => navigate("/bmi"),
+                style: {
+                  padding: "14px 32px", background: "transparent",
+                  border: "1px solid #e0e0e0", color: "#999",
+                  fontSize: "9px", letterSpacing: "0.4em", textTransform: "uppercase",
+                  cursor: "pointer", fontFamily: "'Helvetica Neue', Arial, sans-serif",
+                  transition: "all 0.3s ease",
+                },
+                onMouseEnter: (e) => { e.currentTarget.style.borderColor = "#000"; e.currentTarget.style.color = "#000"; },
+                onMouseLeave: (e) => { e.currentTarget.style.borderColor = "#e0e0e0"; e.currentTarget.style.color = "#999"; },
+              }, "BMI Calculator →")
+            )
+          )
+        )
+      )
+    ),
+
+    // ══════════════════════════════════════
+    // 02 — FEATURES — Accordion style
+    // ══════════════════════════════════════
+    React.createElement("section", {
+      style: { background: "#fff", borderTop: "1px solid #f0f0f0" }
+    },
+
+      // Section label
+      React.createElement(RevealSection, null,
+        React.createElement("div", {
+          style: { padding: mobile ? "48px 32px 32px" : "72px 80px 48px", borderBottom: "1px solid #f0f0f0", display: "flex", justifyContent: "space-between", alignItems: "center" }
+        },
+          React.createElement("h2", {
+            style: { fontSize: mobile ? "28px" : "clamp(28px,4vw,48px)", fontFamily: "'Bebas Neue', Impact", color: "#000", margin: 0, letterSpacing: "0.02em" }
+          }, "WHAT WE OFFER"),
+          React.createElement("span", { style: { fontSize: "8px", letterSpacing: "0.4em", color: "#ccc", textTransform: "uppercase" } }, "04 Systems")
+        )
+      ),
+
+      // Accordion items
+      features.map((f, i) =>
+        React.createElement(FeatureRow, {
+          key: f.num, feature: f, index: i,
+          active: activeFeature === i,
+          onClick: () => setActiveFeature(i),
+          mobile,
+        })
+      )
+    ),
+
+    // ══════════════════════════════════════
+    // 03 — STATS — Full width
+    // ══════════════════════════════════════
+    React.createElement("section", {
+      style: { background: "#0a0a0a", borderTop: "1px solid #111" }
+    },
+      React.createElement(RevealSection, null,
+        React.createElement("div", {
+          style: { padding: mobile ? "64px 32px" : "100px 80px", display: "grid", gridTemplateColumns: mobile ? "1fr 1fr" : "repeat(4, 1fr)", gap: "0" }
+        },
+          [
+            { end: 10000, suffix: "+", label: "Elite Athletes", desc: "Training smarter" },
+            { end: 500000, suffix: "+", label: "Sessions", desc: "Logged and crushed" },
+            { end: 98, suffix: "%", label: "Goals Met", desc: "By active users" },
+            { end: 4, suffix: ".9★", label: "Rating", desc: "Across all users" },
+          ].map((s, i) =>
+            React.createElement("div", {
+              key: i,
+              style: {
+                padding: mobile ? "32px 16px" : "0 48px 0 0",
+                borderRight: !mobile && i < 3 ? "1px solid #1a1a1a" : "none",
+                borderBottom: mobile && i < 2 ? "1px solid #1a1a1a" : "none",
+                marginBottom: mobile && i < 2 ? "0" : "0",
+              }
+            },
+              React.createElement("div", {
+                style: { fontSize: mobile ? "36px" : "clamp(44px,6vw,72px)", fontFamily: "'Bebas Neue', Impact", color: "#fff", lineHeight: 1, letterSpacing: "0.02em" }
+              }, React.createElement(Counter, { end: s.end, suffix: s.suffix })),
+              React.createElement("div", { style: { fontSize: "9px", letterSpacing: "0.4em", color: "#fff", textTransform: "uppercase", marginTop: "8px" } }, s.label),
+              React.createElement("div", { style: { fontSize: "9px", color: "#333", marginTop: "4px", letterSpacing: "0.1em" } }, s.desc)
+            )
+          )
+        )
+      )
+    ),
+
+    // ══════════════════════════════════════
+    // 04 — CTA — Minimal powerful
+    // ══════════════════════════════════════
+    React.createElement("section", {
+      style: { background: "#fafafa", borderTop: "1px solid #f0f0f0", position: "relative", overflow: "hidden" }
+    },
+      // Ghost text bg
+      React.createElement("div", {
+        style: {
+          position: "absolute", top: "50%", left: "50%",
+          transform: "translate(-50%,-50%)",
+          fontSize: mobile ? "30vw" : "20vw",
+          fontFamily: "'Bebas Neue', Impact",
+          color: "transparent", WebkitTextStroke: "1px #f0f0f0",
+          userSelect: "none", pointerEvents: "none",
+          whiteSpace: "nowrap", letterSpacing: "0.02em",
+        }
+      }, "BEGIN"),
+
+      React.createElement(RevealSection, null,
+        React.createElement("div", {
+          style: {
+            padding: mobile ? "80px 32px 100px" : "140px 80px",
+            display: "flex", flexDirection: mobile ? "column" : "row",
+            alignItems: mobile ? "flex-start" : "center",
+            justifyContent: "space-between", gap: "60px",
+            position: "relative", zIndex: 2,
+          }
+        },
+          React.createElement("div", null,
+            React.createElement("div", { style: { fontSize: "7px", letterSpacing: "0.6em", color: "#ccc", textTransform: "uppercase", marginBottom: "24px" } }, "— Ready?"),
+            React.createElement("h2", {
+              style: { fontSize: mobile ? "12vw" : "clamp(56px,9vw,120px)", fontFamily: "'Bebas Neue', Impact", color: "#000", lineHeight: 0.9, margin: "0 0 24px", letterSpacing: "0.01em" }
+            }, "START YOUR\nJOURNEY."),
+            React.createElement("p", {
+              style: { fontSize: "10px", color: "#bbb", letterSpacing: "0.12em", lineHeight: 2.2, textTransform: "uppercase", maxWidth: "320px" }
+            }, "No shortcuts. No excuses. Just results.")
+          ),
+
+          React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: "12px" } },
+            React.createElement("button", {
+              onClick: () => navigate(isLoggedIn ? "/dashboard" : "/signup"),
+              style: {
+                padding: "18px 52px", background: "#000", border: "none",
+                color: "#fff", fontSize: "9px", letterSpacing: "0.45em",
+                textTransform: "uppercase", cursor: "pointer",
+                fontFamily: "'Helvetica Neue', Arial, sans-serif",
+                transition: "all 0.3s ease",
+              },
+              onMouseEnter: (e) => e.currentTarget.style.background = "#222",
+              onMouseLeave: (e) => e.currentTarget.style.background = "#000",
+            }, isLoggedIn ? "Enter Dashboard" : "Join Now — Free"),
+
+            React.createElement("button", {
+              onClick: () => navigate("/bmi"),
+              style: {
+                padding: "18px 52px", background: "transparent",
+                border: "1px solid #e8e8e8", color: "#bbb",
+                fontSize: "9px", letterSpacing: "0.45em",
+                textTransform: "uppercase", cursor: "pointer",
+                fontFamily: "'Helvetica Neue', Arial, sans-serif",
+                transition: "all 0.3s ease",
+              },
+              onMouseEnter: (e) => { e.currentTarget.style.borderColor = "#000"; e.currentTarget.style.color = "#000"; },
+              onMouseLeave: (e) => { e.currentTarget.style.borderColor = "#e8e8e8"; e.currentTarget.style.color = "#bbb"; },
+            }, "Calculate BMI")
+          )
+        )
+      )
     ),
 
     React.createElement("style", null, `
       @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap');
-      @keyframes rPulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.2;transform:scale(0.5)} }
-      @keyframes shimmer { 0%{left:-100%} 100%{left:200%} }
     `)
+  );
+}
+
+// ── REVEAL SECTION ──
+function RevealSection({ children }) {
+  const [ref, visible] = [useRef(null), useState(false)];
+  const vis = useRef(false);
+  const r = useRef(null);
+
+  useEffect(() => {
+    const el = r.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([e]) => { if (e.isIntersecting && !vis.current) { vis.current = true; } },
+      { threshold: 0.1 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
+  const [v, setV] = useState(false);
+  useEffect(() => {
+    const el = r.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([e]) => { if (e.isIntersecting) { setV(true); obs.disconnect(); } },
+      { threshold: 0.1 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
+  return React.createElement("div", {
+    ref: r,
+    style: {
+      opacity: v ? 1 : 0,
+      transform: v ? "none" : "translateY(40px)",
+      transition: "all 1s cubic-bezier(0.16,1,0.3,1)",
+    }
+  }, children);
+}
+
+// ── FEATURE ROW — Accordion ──
+function FeatureRow({ feature, index, active, onClick, mobile }) {
+  return React.createElement("div", {
+    onClick,
+    style: {
+      borderBottom: "1px solid #f0f0f0",
+      cursor: "pointer",
+      background: active ? "#fafafa" : "#fff",
+      transition: "background 0.3s ease",
+    }
+  },
+    // Header
+    React.createElement("div", {
+      style: {
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: mobile ? "24px 32px" : "32px 80px",
+        gap: "20px",
+      }
+    },
+      React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "24px" } },
+        React.createElement("span", { style: { fontSize: "9px", letterSpacing: "0.4em", color: "#ccc", fontFamily: "'Helvetica Neue', Arial, sans-serif", minWidth: "24px" } }, feature.num),
+        React.createElement("span", {
+          style: {
+            fontSize: mobile ? "20px" : "clamp(20px,3vw,36px)",
+            fontFamily: "'Bebas Neue', Impact",
+            color: active ? "#000" : "#888",
+            letterSpacing: "0.04em",
+            transition: "color 0.3s ease",
+          }
+        }, feature.title)
+      ),
+      React.createElement("div", {
+        style: {
+          width: "28px", height: "28px",
+          border: `1px solid ${active ? "#000" : "#e0e0e0"}`,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: "14px", color: active ? "#000" : "#ccc",
+          transition: "all 0.3s ease",
+          transform: active ? "rotate(45deg)" : "none",
+          flexShrink: 0,
+        }
+      }, "+")
+    ),
+
+    // Expanded content
+    React.createElement("div", {
+      style: {
+        maxHeight: active ? "200px" : "0px",
+        overflow: "hidden",
+        transition: "max-height 0.5s cubic-bezier(0.16,1,0.3,1)",
+      }
+    },
+      React.createElement("div", {
+        style: {
+          padding: mobile ? "0 32px 32px 80px" : "0 80px 40px 128px",
+          display: "flex", gap: "48px", flexWrap: "wrap",
+        }
+      },
+        React.createElement("p", {
+          style: { fontSize: "12px", color: "#999", lineHeight: 2.2, letterSpacing: "0.06em", margin: 0, maxWidth: "500px" }
+        }, feature.desc),
+        React.createElement("div", {
+          style: { fontSize: "8px", letterSpacing: "0.4em", color: "#ccc", textTransform: "uppercase", alignSelf: "flex-end" }
+        }, feature.sub)
+      )
+    )
   );
 }
 
